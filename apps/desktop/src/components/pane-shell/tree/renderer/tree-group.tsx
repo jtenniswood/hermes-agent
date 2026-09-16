@@ -12,20 +12,12 @@
 import { useStore } from '@nanostores/react'
 import { type CSSProperties, Fragment, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 
-import { TITLEBAR_DRAG_HANDLE_WIDTH, TITLEBAR_HEIGHT, TITLEBAR_TABS_GAP } from '@/app/shell/titlebar'
+import { TITLEBAR_DRAG_HANDLE_WIDTH, TITLEBAR_HEIGHT, TITLEBAR_TABS_GAP, TITLEBAR_TABS_HEIGHT } from '@/app/shell/titlebar'
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
 import { Codicon } from '@/components/ui/codicon'
 import { DecodeText } from '@/components/ui/decode-text'
 import { DROP_SHEET_BLUR_CLASS, DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
-import {
-  PANE_TAB_STRIP_LINE_LEFT,
-  PANE_TAB_STRIP_LINE_RIGHT,
-  PaneStripGlyph,
-  PaneTab,
-  paneTabCloseItems,
-  PaneTabLabel,
-  PaneTabStrip
-} from '@/components/ui/pane-tab'
+import { PaneStripGlyph, PaneTab, paneTabCloseItems, PaneTabLabel, PaneTabStrip } from '@/components/ui/pane-tab'
 import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { useI18n } from '@/i18n'
@@ -482,11 +474,8 @@ export function TreeGroup({
       {verticalCollapse && (
         <ZoneMenu {...zoneMenu}>
           <div
-            className={cn(
-              'flex h-full min-h-7 w-7 min-w-7 shrink-0 cursor-pointer select-none flex-col items-stretch bg-(--ui-sidebar-surface-background)',
-              // Strip line faces the content the zone collapsed away from.
-              railSide === 'right' ? PANE_TAB_STRIP_LINE_LEFT : PANE_TAB_STRIP_LINE_RIGHT
-            )}
+            className="flex h-full min-h-7 w-7 min-w-7 shrink-0 cursor-pointer select-none flex-col items-stretch bg-(--ui-sidebar-surface-background)"
+            data-glass-sidebar-rail=""
             onClick={() => restoreTreePane(activeId)}
             title={t.zones.restore}
           >
@@ -530,7 +519,10 @@ export function TreeGroup({
           data-panel-header=""
           style={
             topEdge
-              ? { height: TITLEBAR_HEIGHT + (tabsBelowControls && headerVisible ? 28 + titlebarTabsGap : 0) }
+              ? {
+                  height:
+                    TITLEBAR_HEIGHT + (tabsBelowControls && headerVisible ? TITLEBAR_TABS_HEIGHT + titlebarTabsGap : 0)
+                }
               : undefined
           }
         >
@@ -567,7 +559,13 @@ export function TreeGroup({
                   }
                 }}
                 ref={stripRef}
-                style={{ cursor: 'grab', WebkitAppRegion: dragging ? 'no-drag' : undefined } as CSSProperties}
+                style={
+                  {
+                    cursor: 'grab',
+                    height: tabsBelowControls ? TITLEBAR_TABS_HEIGHT : undefined,
+                    WebkitAppRegion: dragging ? 'no-drag' : undefined
+                  } as CSSProperties
+                }
                 titlebar={tabsInTitlebar}
                 trailing={
                   <>
@@ -824,7 +822,7 @@ export function TreeGroup({
             style={{
               top:
                 topEdge
-                  ? TITLEBAR_HEIGHT + (tabsBelowControls && headerVisible ? 28 + titlebarTabsGap : 0)
+                  ? TITLEBAR_HEIGHT + (tabsBelowControls && headerVisible ? TITLEBAR_TABS_HEIGHT + titlebarTabsGap : 0)
                   : headerVisible
                     ? 28
                     : 0,
