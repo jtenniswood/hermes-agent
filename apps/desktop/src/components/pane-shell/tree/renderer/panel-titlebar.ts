@@ -19,6 +19,11 @@ export function zoomAdjustedGapCss(gap: number, zoomFactor: number): number {
   return gap / (Number.isFinite(zoomFactor) && zoomFactor > 0 ? zoomFactor : 1)
 }
 
+/** Keep physical breathing room around native controls constant at every UI scale. */
+export function zoomAdjustedGapCss(gap: number, zoomFactor: number): number {
+  return gap / (Number.isFinite(zoomFactor) && zoomFactor > 0 ? zoomFactor : 1)
+}
+
 /** Reserve actual chrome intersections, including after a neighbor becomes a rail. */
 export function usePanelTitlebar(
   ref: RefObject<HTMLElement | null>,
