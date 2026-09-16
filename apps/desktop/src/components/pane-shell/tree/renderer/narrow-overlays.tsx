@@ -132,8 +132,8 @@ export function NarrowOverlays() {
 
   return (
     <>
-      {/* Keep both the hover targets and revealed panes below the native
-          titlebar controls and fixed sidebar toggle. */}
+      {/* Keep both the hover targets and revealed panes anchored to the
+          window top so the narrow popout can extend behind the titlebar. */}
       {sides.map(side => (
         <div
           className={cn('absolute bottom-0 z-30 w-1.5', side === 'left' ? 'left-0' : 'right-0')}
@@ -145,7 +145,7 @@ export function NarrowOverlays() {
               setReveal(current => (current?.pinned ? current : { id: first.id, pinned: false }))
             }
           }}
-          style={{ top: TITLEBAR_HEIGHT }}
+          style={{ top: 0 }}
         />
       ))}
 
@@ -165,7 +165,7 @@ export function NarrowOverlays() {
           // Match the pane's docked width (sessions ~237px, files its rail
           // width) instead of a fat fixed 20rem — capped for tiny screens.
           style={{
-            top: TITLEBAR_HEIGHT,
+            top: 0,
             width: `min(${(revealed.data as { width?: string } | undefined)?.width ?? '18rem'}, 85vw)`
           }}
         >
