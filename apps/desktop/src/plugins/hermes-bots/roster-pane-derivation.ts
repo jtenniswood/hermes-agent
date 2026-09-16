@@ -7,6 +7,7 @@ import { isBotPinned } from './hidden-bots'
 import { isBotHidden } from './hidden-bots'
 import { filterBotsByGateway, groupMatchesRosterFilters, rosterGatewaySections } from './roster-sections'
 import type { rosterGatewayOptions } from './roster-sections'
+import { filterRosterForLocalGateway } from './roster-visibility'
 import { botRosterMeta } from './routing'
 import { BOT_ROSTER_SEARCH_THRESHOLD } from './row-helpers'
 import { ACTIVE_WINDOW_S, rosterActivityMatches } from './row-helpers'
@@ -40,6 +41,7 @@ interface RosterRowsInput {
   gatewayOptions: ReturnType<typeof rosterGatewayOptions>
   activityOf: (bot: RosterRow) => number
   isPinned: (bot: RosterRow) => boolean
+  localGatewayEnabled: boolean
 }
 
 export function deriveRosterRows({
@@ -53,13 +55,15 @@ export function deriveRosterRows({
   activeRosterKeys,
   gatewayOptions,
   activityOf,
-  isPinned
+  isPinned,
+  localGatewayEnabled
 }: RosterRowsInput) {
-  const activeSourceRoster = roster.filter(bot => !bot.remoteSource)
+  const displayRoster = filterRosterForLocalGateway(roster, localGatewayEnabled)
+  const activeSourceRoster = displayRoster.filter(bot => !bot.remoteSource)
   // Hidden rows remain fully alive and recoverable at the bottom. Every
   // non-display consumer continues to receive the complete roster.
-  const hiddenBots = roster.filter(bot => isBotHidden(bot, allMeta))
-  const visibleRoster = roster.filter(bot => !isBotHidden(bot, allMeta))
+  const hiddenBots = displayRoster.filter(bot => isBotHidden(bot, allMeta))
+  const visibleRoster = displayRoster.filter(bot => !isBotHidden(bot, allMeta))
   const gatewayRoster = filterBotsByGateway(visibleRoster, gatewayFilter)
 
   const filteredRoster = filterBots(gatewayRoster, allMeta, query).filter((bot: RosterRow) =>
@@ -83,12 +87,16 @@ export function deriveRosterRows({
       )
   )
 
-  const groupNames = groupChatNames(allMeta, groupRooms)
+  const groupNames = groupChatNames(allMeta, groupRooms).filter(name => {
+    const members = groupChatMemberBots(name, roster, allMeta)
+
+    return filterRosterForLocalGateway(members, localGatewayEnabled).length > 0
+  })
 
   const groupRows = groupNames
     .map(name => ({
       name,
-      members: groupChatMemberBots(name, roster, allMeta)
+      members: filterRosterForLocalGateway(groupChatMemberBots(name, roster, allMeta), localGatewayEnabled)
     }))
     .filter(row => groupMatchesRosterFilters(row.name, row.members, allMeta, query, gatewayFilter))
     .map((row): RosterGroupRow => ({

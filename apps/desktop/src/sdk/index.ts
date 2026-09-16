@@ -56,6 +56,7 @@ import {
   retainGatewayForRelay,
   retireLocalProfileGateways
 } from '@/store/gateway'
+import { $localGatewayEnabled } from '@/store/local-gateway-visibility'
 import { notify, notifyError } from '@/store/notifications'
 import {
   $activeGatewayProfile,
@@ -621,6 +622,8 @@ export const host = {
     focusedUsage: readonlyAtom<null | UsageStats>($focusedUsage),
     /** Gateway socket state: 'idle' | 'connecting' | 'open' | …. Not turn-busy. */
     gateway: readonlyAtom<string>($gatewayState),
+    /** Whether the app-managed local gateway is shown in gateway-bound UI. */
+    localGatewayEnabled: readonlyAtom<boolean>($localGatewayEnabled),
     /** Current main model slug. */
     model: readonlyAtom<string>($currentModel),
     /** Profile the live gateway is routed to. */

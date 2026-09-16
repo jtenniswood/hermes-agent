@@ -48,6 +48,7 @@ import { $lastSources, usePublishRosterSnapshot } from './roster-pane-lifecycle'
 import { rosterSectionRenderers } from './roster-pane-sections'
 import { renderRosterToolbar } from './roster-pane-toolbar'
 import { botNeedsHandleLabel, rosterGatewayOptions } from './roster-sections'
+import { filterRosterForLocalGateway } from './roster-visibility'
 import { botWorkspaceOwnerKey, setBotsWorkspaceOwner } from './routing'
 import { activeBots, useTurnBusy } from './row-helpers'
 import type { BotMeta, GatewaySource, GroupMember, RosterActivityFilter, RosterKindFilter, RosterRow } from './types'
@@ -228,6 +229,7 @@ export function BotsPane() {
   const { data, error, isLoading, refetch } = useRoster()
   const gatewayState = useValue(host.state.gateway)
   const gatewayUp = gatewayState === 'open'
+  const localGatewayEnabled = useValue(host.state.localGatewayEnabled)
 
   const turnBusy = useTurnBusy()
   const workingOwner = focusedRosterOwner(useValue($focusedBotOwner))
@@ -291,7 +293,10 @@ export function BotsPane() {
   const sourceWithSelectedOwner =
     selectionHydrated && rosterHydrated ? rosterWithSelectedOwner(source, sourceSnapshot, selectedRosterKey) : source
 
-  const { roster, activityOf, isPinned } = sortRosterBots(sourceWithSelectedOwner, allMeta)
+  const completeRosterState = sortRosterBots(sourceWithSelectedOwner, allMeta)
+  const completeRoster = completeRosterState.roster
+  const roster = filterRosterForLocalGateway(completeRoster, localGatewayEnabled)
+  const { activityOf, isPinned } = completeRosterState
 
   // React Query can briefly report neither loading nor data while the plugin
   // and the persisted connection registry hydrate. Keep that transition in a
@@ -304,7 +309,9 @@ export function BotsPane() {
     activeBots(roster, workingOwner, turnBusy, Date.now(), activeConnectionId, groupKeys).map(botRosterKey)
   )
 
-  const gatewayOptions = rosterGatewayOptions(sourceSnapshot, roster)
+  const gatewayOptions = rosterGatewayOptions(sourceSnapshot, roster).filter(
+    option => localGatewayEnabled || (option.connectionId !== 'local' && option.kind !== 'local')
+  )
   const selectedGateway = gatewayOptions.find(option => option.connectionId === gatewayFilter)
   const gatewayFilterExists = gatewayFilter === 'all' || Boolean(selectedGateway)
   useEffect(() => {
@@ -325,7 +332,7 @@ export function BotsPane() {
     gatewaySections,
     showGatewaySections
   } = deriveRosterRows({
-    roster,
+    roster: completeRoster,
     allMeta,
     gatewayFilter,
     query,
@@ -335,8 +342,11 @@ export function BotsPane() {
     activeRosterKeys,
     gatewayOptions,
     activityOf,
-    isPinned
+    isPinned,
+    localGatewayEnabled
   })
+
+  const displayedActiveSourceRoster = filterRosterForLocalGateway(activeSourceRoster, localGatewayEnabled)
 
   const {
     activeFilterCount,
@@ -392,9 +402,9 @@ export function BotsPane() {
 
     return () => cancelAnimationFrame(frame)
   }, [hiddenExpanded, hasRosterConstraint])
-  usePublishRosterSnapshot({ data, live, roster, allMeta, activeSourceRoster })
+  usePublishRosterSnapshot({ data, live, roster: completeRoster, allMeta, activeSourceRoster })
 
-  useReconcileRosterOwner(data, error, selectionHydrated, roster, sourceSnapshot, allMeta)
+  useReconcileRosterOwner(data, error, selectionHydrated, completeRoster, sourceSnapshot, allMeta)
 
   const staleNotice =
     error && !live && roster.length
@@ -456,7 +466,7 @@ export function BotsPane() {
       {renderRosterToolbar({
         b,
         activityToasts,
-        activeSourceRoster,
+        activeSourceRoster: displayedActiveSourceRoster,
         setCreateOpen,
         setGroupCreateOpen,
         setSectionDialog,
@@ -522,7 +532,7 @@ export function BotsPane() {
         sectionDialog,
         setSectionDialog,
         roster,
-        activeSourceRoster,
+        activeSourceRoster: displayedActiveSourceRoster,
         refetch
       })}
     </div>

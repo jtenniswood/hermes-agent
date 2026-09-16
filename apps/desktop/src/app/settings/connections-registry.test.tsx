@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DesktopConnectionsRegistry } from '@/global'
 import { _resetFleetRosterForTests, refreshFleetRoster } from '@/store/fleet-roster'
+import { setLocalGatewayEnabled } from '@/store/local-gateway-visibility'
 import { $connection } from '@/store/session'
 
 import {
@@ -39,6 +40,7 @@ const registry: DesktopConnectionsRegistry = {
 }
 
 beforeEach(() => {
+  setLocalGatewayEnabled(true)
   $connection.set({
     baseUrl: 'http://homelab.lan:9119',
     connectionId: 'homelab',

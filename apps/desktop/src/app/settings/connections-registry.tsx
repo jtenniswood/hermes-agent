@@ -36,6 +36,7 @@ import {
 import { coerceRemoteUrlScheme } from '@/lib/remote-url'
 import { $activeConnectionId, setConnectionsRegistry } from '@/store/connections'
 import { refreshFleetRoster } from '@/store/fleet-roster'
+import { $localGatewayEnabled, setLocalGatewayEnabled } from '@/store/local-gateway-visibility'
 import { notify, notifyError } from '@/store/notifications'
 
 import { EmptyState, ListRow, Pill, SectionHeading, ToggleRow } from './primitives'
@@ -249,7 +250,7 @@ export function ConnectionsRegistrySection({ remoteConfigured = false }: { remot
   const [plainTextConfirm, setPlainTextConfirm] = useState(false)
   const [launchModeBusy, setLaunchModeBusy] = useState(false)
   const [updatingAll, setUpdatingAll] = useState(false)
-  const [localEnabled, setLocalEnabled] = useState(() => !remoteConfigured)
+  const localEnabled = useStore($localGatewayEnabled)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const pendingSearchTopRef = useRef<null | number>(null)
@@ -270,7 +271,7 @@ export function ConnectionsRegistrySection({ remoteConfigured = false }: { remot
   const hasLocal = Boolean(registry?.connections.some(c => c.kind === 'local'))
 
   useEffect(() => {
-    setLocalEnabled(!remoteConfigured)
+    setLocalGatewayEnabled(!remoteConfigured)
   }, [remoteConfigured])
 
   const publishRegistry = useCallback((next: DesktopConnectionsRegistry) => {
@@ -709,7 +710,7 @@ export function ConnectionsRegistrySection({ remoteConfigured = false }: { remot
                   <Button
                     onClick={() => {
                       triggerHaptic('selection')
-                      setLocalEnabled(true)
+                      setLocalGatewayEnabled(true)
                     }}
                     size="sm"
                     variant="outline"
@@ -778,7 +779,7 @@ export function ConnectionsRegistrySection({ remoteConfigured = false }: { remot
                       disabled={busy}
                       onClick={() => {
                         triggerHaptic('selection')
-                        setLocalEnabled(false)
+                        setLocalGatewayEnabled(false)
                       }}
                       size="sm"
                       variant="outline"
