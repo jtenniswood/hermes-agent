@@ -297,7 +297,6 @@ export function TreeGroup({
   const active = paneFor(activeId)
   const isEmpty = shown.length === 0
   const pageHeader = paneChrome(active).headerContent
-  const pageHeader = paneChrome(active).headerContent
 
   // What the strip's "+" makes. The pane you are LOOKING AT answers first (a
   // Browser tab makes another Browser, even stacked into the chat strip), then
