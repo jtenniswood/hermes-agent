@@ -18077,6 +18077,12 @@ ipcMain.handle('hermes:deep-link-ready', () => {
 })
 
 function registerDeepLinkProtocol() {
+  // A separately named test build must not take hermes:// away from the installed app.
+  if (APP_NAME !== 'Hermes') {
+    rememberLog(`[deeplink] skipped protocol registration for ${APP_NAME}`)
+    return
+  }
+
   try {
     if (process.defaultApp && process.argv.length >= 2) {
       // Dev: register with the electron exec path + entry script so the OS can
