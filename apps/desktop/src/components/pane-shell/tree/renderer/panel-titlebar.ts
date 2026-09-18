@@ -20,7 +20,12 @@ export function zoomAdjustedGapCss(gap: number, zoomFactor: number): number {
 }
 
 /** Reserve actual chrome intersections, including after a neighbor becomes a rail. */
-export function usePanelTitlebar(ref: RefObject<HTMLElement | null>, enabled: boolean, minimized: boolean) {
+export function usePanelTitlebar(
+  ref: RefObject<HTMLElement | null>,
+  enabled: boolean,
+  minimized: boolean,
+  keepTabsBelowControls = false
+) {
   const [belowControls, setBelowControls] = useState(true)
 
   const measure = useCallback(() => {
@@ -54,8 +59,8 @@ export function usePanelTitlebar(ref: RefObject<HTMLElement | null>, enabled: bo
     const right = Math.min(rect.width - left, Math.max(0, rect.right - rightControls.left + rightGap))
     element.style.setProperty('--panel-titlebar-left', `${left}px`)
     element.style.setProperty('--panel-titlebar-right', `${right}px`)
-    setBelowControls(minimized || rect.width - left - right < 120)
-  }, [enabled, minimized, ref])
+    setBelowControls(keepTabsBelowControls || minimized || rect.width - left - right < 120)
+  }, [enabled, keepTabsBelowControls, minimized, ref])
 
   useResizeObserver(measure, ref)
   useLayoutEffect(() => {
