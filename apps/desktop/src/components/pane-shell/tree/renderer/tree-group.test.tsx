@@ -2,6 +2,7 @@ import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { TITLEBAR_HEIGHT, TITLEBAR_TABS_GAP, TITLEBAR_TABS_HEIGHT } from '@/app/shell/titlebar'
 import { registry } from '@/contrib/registry'
 import { $tabStripDefault, setTabStripDefault } from '@/store/tabstrip-prefs'
 
@@ -122,7 +123,9 @@ describe('TreeGroup', () => {
     it.each([300, 800])('keeps sidebar tabs below the native band at width %s', width => {
       const { strip } = mountCrowdedStrip(width, 'left')
       expect(strip.className).toContain('bottom-0')
-      expect(container!.querySelector<HTMLElement>('[data-panel-header]')!.style.height).toBe('62px')
+      expect(container!.querySelector<HTMLElement>('[data-panel-header]')!.style.height).toBe(
+        `${TITLEBAR_HEIGHT + TITLEBAR_TABS_HEIGHT + TITLEBAR_TABS_GAP}px`
+      )
     })
 
     it.each(['zone', 'default'] as const)('preserves the saved %s hide-tabs preference', source => {
