@@ -67,7 +67,6 @@ import {
 } from '@/store/profile'
 import { $newProjectSessionRequest, $startWorkSessionRequest, followActiveSessionCwd } from '@/store/projects'
 import { $backendRestartRequest, $routeRequest } from '@/store/recovery-requests'
-import { $zoomPercent } from '@/store/zoom'
 import {
   $activeSessionId,
   $connection,
@@ -94,6 +93,7 @@ import { $titlebarAppActionsSide, titlebarAppActionsClusterCounts } from '@/stor
 import { clearSessionTodos, setSessionTodos, todosForHydration } from '@/store/todos'
 import { armWakeWord, stopClientCapture } from '@/store/wake-word'
 import { isAuxiliaryWindow, isBrowserWindow, isHudWindow } from '@/store/windows'
+import { $zoomPercent } from '@/store/zoom'
 import { useSkinCommand } from '@/themes/use-skin-command'
 
 import { closeWorkspaceTab } from '../chat/close-tab'
