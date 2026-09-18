@@ -1,12 +1,12 @@
 import type { HermesConnection } from '@/global'
 
 export const TITLEBAR_HEIGHT = 34
-/** Permanent native drag target beside a top-edge tab strip. */
-export const TITLEBAR_DRAG_HANDLE_WIDTH = 48
 /** No dead band between native window controls and the equal-height tab row. */
 export const TITLEBAR_TABS_GAP = 0
 /** Keep the below-controls tab row aligned with the titlebar control band. */
 export const TITLEBAR_TABS_HEIGHT = TITLEBAR_HEIGHT
+/** Permanent native drag target beside a top-edge tab strip. */
+export const TITLEBAR_DRAG_HANDLE_WIDTH = 48
 export const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
 /** Titlebar tool hit target (both axes). */
 export const TITLEBAR_CONTROL_SIZE = 24

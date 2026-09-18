@@ -124,7 +124,7 @@ describe('TreeGroup', () => {
       const { strip } = mountCrowdedStrip(width, 'left')
       expect(strip.className).toContain('bottom-0')
       expect(container!.querySelector<HTMLElement>('[data-panel-header]')!.style.height).toBe(
-        `${TITLEBAR_HEIGHT + TITLEBAR_TABS_HEIGHT + TITLEBAR_TABS_GAP}px`
+        `${TITLEBAR_HEIGHT + TITLEBAR_TABS_GAP + TITLEBAR_TABS_HEIGHT}px`
       )
     })
 
@@ -154,8 +154,9 @@ describe('TreeGroup', () => {
       }
     })
 
-    it('renders page controls inside their own panel in the normal tab space', () => {
-      mountCrowdedStrip(800)
+    it.each([300, 800])('renders page controls in the normal tab space at width %s', width => {
+      const { strip } = mountCrowdedStrip(width)
+      const tabRowHeight = strip.style.height
       act(() => {
         registry.register({
           area: 'panes',
@@ -173,6 +174,7 @@ describe('TreeGroup', () => {
       expect(header.textContent).toBe('Board picker')
       expect(header.closest('[data-tree-group]')?.getAttribute('data-tree-group')).toBe('terminal-zone')
       expect(header.querySelector('[data-slot="pane-tab"]')).not.toBeNull()
+      expect(header.style.height).toBe(tabRowHeight)
       expect(container!.querySelector('[data-zone-tabstrip]')).toBeNull()
     })
 

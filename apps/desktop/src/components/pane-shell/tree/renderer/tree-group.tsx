@@ -12,7 +12,12 @@
 import { useStore } from '@nanostores/react'
 import { type CSSProperties, Fragment, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 
-import { TITLEBAR_DRAG_HANDLE_WIDTH, TITLEBAR_HEIGHT, TITLEBAR_TABS_GAP, TITLEBAR_TABS_HEIGHT } from '@/app/shell/titlebar'
+import {
+  TITLEBAR_DRAG_HANDLE_WIDTH,
+  TITLEBAR_HEIGHT,
+  TITLEBAR_TABS_GAP,
+  TITLEBAR_TABS_HEIGHT
+} from '@/app/shell/titlebar'
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
 import { Codicon } from '@/components/ui/codicon'
 import { DecodeText } from '@/components/ui/decode-text'
@@ -536,9 +541,10 @@ export function TreeGroup({
             <div
               className={cn(
                 'flex min-w-0 flex-1 items-stretch overflow-hidden',
-                tabsBelowControls && 'absolute inset-x-0 bottom-0 h-7'
+                tabsBelowControls && 'absolute inset-x-0 bottom-0'
               )}
               data-panel-page-header=""
+              style={{ height: tabsBelowControls ? TITLEBAR_TABS_HEIGHT : undefined }}
             >
               <PaneTab active>{pageHeader()}</PaneTab>
             </div>
