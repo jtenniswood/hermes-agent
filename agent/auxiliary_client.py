@@ -24,7 +24,12 @@ from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, TYPE_CHECKING, Union
 from urllib.parse import urlparse, parse_qs, urlunparse
 
-from agent.error_classifier import _BILLING_PATTERNS, _OVERLOADED_PATTERNS
+from agent.error_classifier import (
+    _BILLING_PATTERNS,
+    _OVERLOADED_PATTERNS,
+    UNSUPPORTED_PARAM_MARKERS,
+    is_reasoning_field_rejection,
+)
 from agent.auxiliary_structured_output import remember_structured_output_rejection
 from agent.codex_headers import (
     CODEX_AUX_BASE_URL as _CODEX_AUX_BASE_URL,
@@ -3240,16 +3245,7 @@ def _is_unsupported_parameter_error(exc: Exception, param: str) -> bool:
     if not param_lower:
         return False
     err_lower = str(exc).lower()
-    # Bedrock Converse rejects sampling params for reasoning-first models with the contraction
-    # ("This model doesn't support the temperature field", xAI Grok) and inference-profile Claude
-    # with "`temperature` is deprecated for this model" (#111043).
-    return param_lower in err_lower and _contains_any(err_lower, (
-        "unsupported parameter", "unsupported_parameter", "not supported", "does not support",
-        "doesn't support", "is deprecated for this model",
-        "unknown parameter", "unrecognized request argument", "unrecognized parameter", "invalid parameter",
-        # Strict pydantic-validated gateways (Fireworks) name the unknown field this way (#109774).
-        "extra inputs are not permitted",
-    ))
+    return param_lower in err_lower and _contains_any(err_lower, UNSUPPORTED_PARAM_MARKERS)
 
 
 def _is_structured_output_rejection(exc: Exception) -> bool:
@@ -3303,19 +3299,7 @@ def _is_reasoning_field_rejection(exc: Exception) -> bool:
     status = getattr(exc, "status_code", None)
     if status is not None and status not in {400, 422}:
         return False
-    if not any(_is_unsupported_parameter_error(exc, name) for name in ("reasoning", "think")):
-        return False
-    # The reasoning token must be a standalone wire-field name: not a model-id segment ("The model
-    # kimi-k2-thinking is not supported when using this account" is route gating that belongs to the
-    # provider-fallback rung) and not the adjective in "... not supported with reasoning models".
-    return _REASONING_FIELD_TOKEN.search(str(exc).lower()) is not None
-
-
-# Reasoning wire-field names (the ``_PROFILE_REASONING_KEYS`` controls minus ``verbosity``), longest first.
-_REASONING_FIELD_TOKEN = re.compile(
-    r"(?<![\w\-/])(?:reasoning_effort|thinking_config|thinking_budget|enable_thinking|thinkingconfig"
-    r"|thinkingbudget|reasoning|thinking|think)(?![\w\-/])(?!\s+models?\b)"
-)
+    return is_reasoning_field_rejection(str(exc))
 
 
 def _without_reasoning_fields(kwargs: dict) -> Optional[dict]:
@@ -6409,10 +6393,19 @@ def _merge_aux_extra_body(
 ) -> Dict[str, Any]:
     """Caller extra_body + profile body/reasoning + generic reasoning fallback + Nous tags."""
     merged_extra = dict(extra_body or {})
+    caller_disabled = isinstance(reasoning_config, dict) and reasoning_config.get("enabled") is False
+    if caller_disabled:
+        # The caller's thinking-off beats ``auxiliary.<task>.reasoning_effort`` (folded into
+        # ``extra_body.reasoning`` by _get_task_extra_body). Dropped BEFORE the profile merge so a
+        # profile that projects disabled reasoning onto its own wire (custom: top-level
+        # ``reasoning_effort=none``) never ships beside a task-level ``reasoning.effort`` — strict
+        # gateways 400 on the contradiction (#114020) — while a profile whose disabled shape IS
+        # ``extra_body.reasoning`` (OpenRouter) still lands it below.
+        merged_extra.pop("reasoning", None)
     merged_extra.update(projection.body)
     merged_extra.update(projection.reasoning_extra)
     if reasoning_config and isinstance(reasoning_config, dict) and not projection.handles_reasoning:
-        if reasoning_config.get("enabled") is False:
+        if caller_disabled:
             merged_extra["reasoning"] = {"enabled": False}
         else:
             # ``reasoning_config`` is already clamped to the OpenAI-compat wire by _build_call_kwargs.
@@ -7407,15 +7400,18 @@ def _ladder_credential_rungs(
 
 def _next_fallback_after_quarantine(
     task: Optional[str], resolved_provider: str, is_auto: bool, route: _LadderRoute,
-    failed_model: Optional[str], failure_scope: Any,
+    failed_model: Optional[str], failure_scope: Any, *, task_chain_only: bool = False,
 ) -> Tuple[Optional[Any], Optional[str], str]:
     """Next candidate after a fallback entry was quarantined mid-request (dead credential or a
     capacity error): remaining configured entries (task chain, then main chain on auto) before the
-    discovery chain."""
+    discovery chain. ``task_chain_only`` (explicit-provider auth error) stops at the task chain —
+    the user never opted that task into discovery or the main model."""
     reason = "fallback candidate unavailable"
     fb = _try_configured_fallback_chain(
         task, resolved_provider or "auto", reason=reason, failed_model=failed_model,
         failed_base_url=route.base_info, failure_scope=failure_scope)
+    if task_chain_only:
+        return fb
     if fb[0] is None and is_auto:
         fb = _try_main_fallback_chain(
             task, resolved_provider or "auto", reason=reason, failed_model=failed_model,
@@ -7432,7 +7428,8 @@ def _ladder_provider_fallback(first_err: Exception, route: _LadderRoute):
     chain, explicit: main-agent-model net). Returns the response or None.
     Capacity errors (payment/quota, connection, exhausted 429, model incompatible, malformed
     response) bypass the explicit-provider gate — the provider cannot serve this request
-    regardless of user intent. Auth errors only fall back in auto mode."""
+    regardless of user intent. Auth errors from an explicit provider may only use the task's
+    own configured fallback_chain; they never imply an unconfigured provider hop."""
     task, tag, resolved_provider = route.task, route.tag, route.resolved_provider
     # Respect explicit provider choice for transient errors (auth, request validation, etc.) but allow
     # fallback when the provider clearly cannot serve the request due to capacity: payment/quota exhaustion
@@ -7444,7 +7441,12 @@ def _ladder_provider_fallback(first_err: Exception, route: _LadderRoute):
     reason = next((label for predicate, label in _FALLBACK_REASONS if predicate(first_err)), None)
     is_capacity_error = any(
         predicate(first_err) for predicate, label in _FALLBACK_REASONS if label != "auth error")
-    if reason is None or not (is_auto or is_capacity_error):
+    task_chain = _get_auxiliary_task_config(task).get("fallback_chain") if task else None
+    has_task_fallback_chain = isinstance(task_chain, list) and bool(task_chain)
+    explicit_auth_with_task_chain = (
+        reason == "auth error" and not is_auto and has_task_fallback_chain
+    )
+    if reason is None or not (is_auto or is_capacity_error or explicit_auth_with_task_chain):
         return None
     if reason == "payment error":
         # Mark the concrete backend (not the "auto" label) unhealthy so later aux calls skip
@@ -7483,7 +7485,7 @@ def _ladder_provider_fallback(first_err: Exception, route: _LadderRoute):
             fb_client, fb_model, fb_label = _try_payment_fallback(
                 resolved_provider, task, reason=reason, failed_base_url=route.base_info,
                 failure_scope=_chain_failure_scope, main_runtime=route.main_runtime)
-    elif fb_client is None:
+    elif fb_client is None and not explicit_auth_with_task_chain:
         fb_client, fb_model, fb_label = _try_main_agent_model_fallback(
             resolved_provider, task, reason=reason, failed_model=_chain_failed_model,
             failed_base_url=route.base_info, failure_scope=_chain_failure_scope)
@@ -7503,7 +7505,8 @@ def _ladder_provider_fallback(first_err: Exception, route: _LadderRoute):
         if fb_resp is not None:
             return fb_resp
         fb_client, fb_model, fb_label = _next_fallback_after_quarantine(
-            task, resolved_provider, is_auto, route, _chain_failed_model, _chain_failure_scope)
+            task, resolved_provider, is_auto, route, _chain_failed_model, _chain_failure_scope,
+            task_chain_only=explicit_auth_with_task_chain)
     # All fallback layers exhausted — one user-visible warning, then re-raise.
     logger.warning("Auxiliary %s%s: %s on %s and all fallbacks exhausted "
                    # All fallback layers exhausted — emit a single user-visible warning so the operator

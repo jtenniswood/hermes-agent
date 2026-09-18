@@ -356,6 +356,8 @@ Project-local `.env`, `.env.local`, `.env.production` and `.envrc` files are **r
 
 Sensitive paths inside the safe root are still blocked — pointing `HERMES_WRITE_SAFE_ROOT` at `$HOME` does not allow writing `~/.ssh/id_rsa`.
 
+The `~` in the OS-credential rows means *every* home a write can land in, not just the process `HOME`: the OS user's real home, the profile home (`{HERMES_HOME}/home` under `TERMINAL_HOME_MODE=profile`, containers and spawned workers, where the process `HOME` is pinned), and named accounts (`~root/.ssh/authorized_keys`). An absolute path to the real home's `~/.aws/credentials` is denied even when the agent process runs with `HOME` pointed elsewhere.
+
 Safe-root violations return `Write denied: '…' is outside HERMES_WRITE_SAFE_ROOT (…)`. Credential-path blocks use `Write denied: '…' is a protected system/credential file.`
 
 **Exception — `~/.ssh/config` is approval-gated, not hard-blocked.** The SSH
@@ -736,6 +738,8 @@ All URL-capable tools (web search, web extract, vision, browser) validate URLs b
 - **Reserved, multicast, and unspecified addresses**
 
 SSRF protection is always active for internet-facing use and DNS failures are treated as blocked (fail-closed). Redirect chains are re-validated at each hop to prevent redirect-based bypasses.
+
+The same guard covers fetches whose URL comes from a remote party rather than from you: image/video URLs returned by a generation provider, reference-image URLs a model supplies for edits, pet spritesheets and the petdex manifest, and skills.sh sitemap entries. A provider or index that points one of those at a private or metadata address is refused before any connection opens; the operator's own provider `base_url` is not affected — a download fetched directly from your configured `base_url` (the OpenRouter video content endpoint) skips only the private-address class check on that first hop, while the cloud-metadata floor still applies and any redirect it issues is re-validated in full — and an image-generation provider hosted on your LAN needs `security.allow_private_urls: true` (below) for the *result* URLs it returns to be cached locally.
 
 #### Intentionally allowing private URLs
 
