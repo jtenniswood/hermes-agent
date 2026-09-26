@@ -1,9 +1,7 @@
 name: Build Skills Index
 
 on:
-  schedule:
-    # Run twice daily: 6 AM and 6 PM UTC
-    - cron: "0 6,18 * * *"
+  # The job is upstream-only; omit the schedule here to avoid empty fork runs.
   workflow_dispatch: # Manual trigger
   push:
     branches: [main]

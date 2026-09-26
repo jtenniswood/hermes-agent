@@ -1,8 +1,8 @@
 name: Sync fork with upstream
 
 on:
-  schedule:
-    - cron: "0 */12 * * *" # 00:00 and 12:00 UTC
+  # Main has fork-only commits and cannot be fast-forwarded automatically.
+  # Run this manually after reconciling the branches.
   workflow_dispatch:
 
 concurrency:
