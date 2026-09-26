@@ -84,6 +84,9 @@ jobs:
   # OS's matrix so all combos cover the same set.
   pick-releases:
     name: Pick release tags
+    # Forks do not carry upstream release tags; the release-upgrade matrix is
+    # meaningful only in the repository that publishes those releases.
+    if: github.repository == 'NousResearch/hermes-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -223,6 +226,7 @@ jobs:
   # looks it up by that name.
   leg-player:
     name: Upload leg player
+    if: github.repository == 'NousResearch/hermes-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -246,7 +250,7 @@ jobs:
   # the per-OS aggregates.
   report:
     name: Result chart
-    if: always()
+    if: always() && github.repository == 'NousResearch/hermes-agent'
     needs: [leg-player, pick-releases, linux, windows, macos]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -259,11 +263,16 @@ jobs:
           sparse-checkout-cone-mode: false
       - env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAGS: ${{ needs.pick-releases.outputs.tags || '[]' }}
         run: |
           set -euo pipefail
           {
             echo "OS jobs: linux ${{ needs.linux.result }}, windows ${{ needs.windows.result }}, macos ${{ needs.macos.result }}"
             echo
+            if [ "$RELEASE_TAGS" = '[]' ]; then
+              echo 'The release-tag selection failed, so no install/update matrix was generated.'
+              exit 0
+            fi
             # The tag annotations let the chart say WHY a cell skipped
             # (pre-desktop vs declared TODO) instead of a flat "skip".
             gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
@@ -273,6 +282,6 @@ jobs:
             echo 'Legend: ✅ upgrade passed · known [n] = exact historical failure, see footnote · ❌ unexpected failure · pre-desktop / TODO = why a leg skipped · 📼 opens the leg player (recording + synced logs)'
             echo
             node scripts/sandbox/generate-e2e-matrix.mjs --format results \
-              --tags '${{ needs.pick-releases.outputs.tags }}' \
+              --tags "$RELEASE_TAGS" \
               --artifacts /tmp/e2e-artifacts.ndjson < /tmp/e2e-jobs.ndjson
           } >> "$GITHUB_STEP_SUMMARY"

@@ -31,13 +31,19 @@ jobs:
 
       - name: Fast-forward fork main
         run: |
-          if ! git merge-base --is-ancestor HEAD upstream/main; then
-            echo "::error::Fork main has diverged from upstream/main; refusing to overwrite fork-only commits."
-            exit 1
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Fork main already contains upstream/main; no sync is needed."
+            exit 0
           fi
 
-          if [ "$(git rev-parse HEAD)" = "$(git rev-parse upstream/main)" ]; then
-            echo "Fork main is already up to date."
-          else
+          if git merge-base --is-ancestor HEAD upstream/main; then
             git push origin refs/remotes/upstream/main:refs/heads/main
+            exit 0
           fi
+
+          echo "::warning::Fork main has diverged from upstream/main. No update was pushed to preserve fork-only commits."
+          {
+            echo '## Upstream sync skipped'
+            echo
+            echo 'Fork main has commits that are not on upstream/main, and upstream has moved ahead. This workflow made no changes. Reconcile the branches manually before the next sync.'
+          } >> "$GITHUB_STEP_SUMMARY"
